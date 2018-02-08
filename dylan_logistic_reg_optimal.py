@@ -1,24 +1,46 @@
+import pdb
 import numpy as np
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.feature_extraction.text import TfidfTransformer
 
-# Import data
+# Import training data
 original_training_data = np.loadtxt("training_data.txt", skiprows=1)
-train = original_training_data
+# Import test data
+original_test_data = np.loadtxt("test_data.txt", skiprows=1)
+# Produce joint tf-idf-generating dataset
+pre_tf_idf = np.append(original_training_data[:,1:], original_test_data, axis=0)
 
 # Compute tf-idf
 tfidf_trans = TfidfTransformer()
-tf_idf = tfidf_trans.fit_transform(train[:,1:])
-tf_idf = tf_idf.toarray()
-train_labels = train[:,0]
-train_labels = train_labels.reshape(20000,1)
-train_tf_idf = np.append(train_labels, tf_idf, axis=1)
-original_training_data = train_tf_idf
+full_tf_idf = tfidf_trans.fit_transform(pre_tf_idf)
+full_tf_idf = full_tf_idf.toarray()
 
-# Train model on tf-idf data
-training_x = original_training_data[:,1:]
-training_y = original_training_data[:,0]
+# Reconstitute training data
+train_labels = original_training_data[:,0]
+train_labels = train_labels.reshape(20000,1)
+training_tf_idf = np.append(train_labels, full_tf_idf[0:20000,:], axis=1)
+
+# Reconstitute test data
+test_tf_idf = full_tf_idf[20000:, :]
+
+# Train model on tf-idf training data
+training_x = training_tf_idf[:,1:]
+training_y = training_tf_idf[:,0]
 model = LogisticRegression(penalty='l2', C = 0.975)
 model.fit( training_x, training_y )
-#test_result =  model.score( test_x, test_y)
+
+# Use model to predict tf-idf test data
+test_result = model.predict( test_tf_idf )
+
+# Alternative where you train on 80% of the training data and test on the remaining 20%
+#np.random.shuffle(training_tf_idf)
+#training_x = training_tf_idf[0:16000,1:]
+#training_y = training_tf_idf[0:16000,0]
+#test_x = training_tf_idf[16000:,1:]
+#test_y = training_tf_idf[16000:,0]
+#model = LogisticRegression(penalty='l2', C = 0.975)
+#model.fit( training_x, training_y )
+#test_result = model.score( test_x, test_y )
+#print( str(test_result) )
